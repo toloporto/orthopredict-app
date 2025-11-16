@@ -8,51 +8,48 @@ on:
     branches: [ main ]
 
 # Variables de entorno para notificaciones
-env: # Cambiado a Discord
+env:
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+  DOCKERHUB_USERNAME: 'toloporto'  # ⚠️ YA CONFIGURADO
+  IMAGE_NAME: 'orthopredict-pro'
 
 jobs:
-  # JOB 1: Ejecutar Tests
+  # JOB 1: Ejecutar Tests (OPTIMIZADO)
   run-tests:
-    name: Run Python Tests
+    name: 🧪 Run Python Tests
     runs-on: ubuntu-latest
     
     steps:
-    # Paso 1: Obtener el código
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    # Paso 2: Configurar Python
     - name: 🐍 Set up Python 3.9
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
         cache: 'pip'
     
-    # Paso 3: Instalar dependencias
     - name: 📦 Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov bandit
     
-    # Paso 4: Ejecutar tests con cobertura
     - name: 🧪 Run tests with coverage
       run: |
         python -m pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
     
-    # Paso 5: Subir reporte de cobertura (Opcional)
     - name: 📊 Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
 
-  # JOB 2: Security Scan
+  # JOB 2: Security Scan (OPTIMIZADO)
   security-scan:
-    name: Security Scan
+    name: 🔒 Security Scan
     runs-on: ubuntu-latest
-    needs: run-tests  # Espera a que los tests pasen
+    needs: run-tests
     
     steps:
     - name: 📥 Checkout code
@@ -68,7 +65,7 @@ jobs:
     
     - name: 🔍 Run security scan
       run: |
-        bandit -r src/ -f html -o security-report.html || true
+        bandit -r src/ -f html -o security-report.html
     
     - name: 💾 Upload security report
       uses: actions/upload-artifact@v4
@@ -76,12 +73,12 @@ jobs:
         name: security-report
         path: security-report.html
 
-  # JOB 3: Build Docker Image (Solo en main)
+  # JOB 3: Build Docker Image (OPTIMIZADO)
   docker-build:
-    name: Build Docker Image
+    name: 🐳 Build Docker Image
     runs-on: ubuntu-latest
-    needs: [run-tests, security-scan]  # Espera a tests y security
-    if: github.ref == 'refs/heads/main'  # Solo en branch main
+    needs: [run-tests, security-scan]
+    if: github.ref == 'refs/heads/main'
     
     steps:
     - name: 📥 Checkout code
@@ -95,75 +92,40 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        push: false  # No pushear a registry por ahora
-        tags: orthopredict-pro:latest
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        # ✅ NUEVO: Plataformas múltiples para compatibilidad
+        platforms: linux/amd64,linux/arm64
     
     - name: 🐳 Test Docker image
       run: |
-        # Construir imagen
-        docker build -t orthopredict-pro-test .
+        echo "🧪 Testing Docker image..."
+        docker build -t ${{ env.IMAGE_NAME }}-test .
         
-        # Ejecutar contenedor de prueba
-        docker run -d --name orthopredict-test -p 8501:8501 orthopredict-pro-test
+        echo "🚀 Starting test container..."
+        docker run -d --name orthopredict-test -p 8501:8501 ${{ env.IMAGE_NAME }}-test
         
-        # Esperar que la app inicie
-        sleep 15
+        echo "⏳ Waiting for app to start..."
+        sleep 20
         
-        # Verificar que el contenedor está corriendo
-        docker ps | grep orthopredict-test
+        echo "🔍 Checking container status..."
+        docker ps -a | grep orthopredict-test
         
-        # Verificar logs
-        docker logs orthopredict-test > docker-test.log 2>&1
+        echo "📝 Checking logs..."
+        docker logs orthopredict-test
         
-        # Limpiar
-        docker stop orthopredict-test
-        docker rm orthopredict-test
-    
-    - name: 💾 Upload Docker logs
-      if: always()  # Subir logs incluso si falla
-      uses: actions/upload-artifact@v4
-      with:
-        name: docker-logs
-        path: docker-test.log
-        retention-days: 7
+        echo "❤️ Health check..."
+        timeout 10s bash -c 'until curl -f http://localhost:8501/_stcore/health; do sleep 1; done' && echo "✅ Health check passed"
+        
+        echo "🧹 Cleaning up..."
+        docker stop orthopredict-test || true
+        docker rm orthopredict-test || true
 
-  # JOB 4: Deploy (Opcional - para cuando tengas servidor)
-  # deploy:
-  #   name: Deploy to Server
-  #   runs-on: ubuntu-latest
-  #   needs: docker-build
-  #   if: github.ref == 'refs/heads/main'
-  #   
-  #   steps:
-  #   - name: 🚀 Deploy to production
-  #     run: echo "Deploy logic would go here"
-
-  # JOB 5: Notificaciones
-  notifications:
-    name: Send Notifications
-    runs-on: ubuntu-latest
-    # Se ejecuta después de los jobs principales, sin importar si fallan
-    needs: [run-tests, security-scan, docker-build]
-    if: always() # 'always()' asegura que este job se ejecute siempre
-    
-    steps:
-    - name: 📢 Send Discord notification
-      uses: tsickert/discord-webhook@v5
-      with:
-        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        content: |
-          **OrthoPredict CI/CD Pipeline Status: `${{ job.status }}`**
-          - **Repositorio:** `${{ github.repository }}`
-          - **Commit:** `${{ github.sha }}`
-          - **Autor:** `${{ github.actor }}`
-          - **Workflow:** `${{ github.workflow }}`
-          - Ver detalles de la ejecución
-
-  # JOB 6: Despliegue a Producción (Solo en main)
-  deploy-production:
-    name: 🚀 Deploy to Production
+  # JOB 4: Push to Docker Hub (OPTIMIZADO)
+  docker-push:
+    name: 🚀 Push to Docker Hub
     runs-on: ubuntu-latest
     needs: docker-build
     if: github.ref == 'refs/heads/main'
@@ -172,27 +134,92 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    - name: 🐳 Build and push Docker image
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: 🔐 Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: 📦 Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: ./Dockerfile
         push: true
         tags: |
-          toloporto/orthopredict-pro:latest
-          toloporto/orthopredict-pro:${{ github.sha }}
+          ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
     
-    - name: 🚀 Deploy to server
-      uses: appleboy/ssh-action@v0.1.3
+    - name: 📋 Update Docker Hub description
+      run: |
+        echo "✅ Image pushed: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
+
+  # JOB 5: Deploy to Production (OPTIMIZADO)
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: docker-push
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 🔐 Deploy to production server
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
-          docker pull toloporto/orthopredict-pro:latest
+          echo "🚀 Starting deployment..."
+          
+          # Pull latest image
+          docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Stop and remove old container
           docker stop orthopredict-app || true
           docker rm orthopredict-app || true
+          
+          # Run new container with production settings
           docker run -d \
             --name orthopredict-app \
             -p 8501:8501 \
             --restart unless-stopped \
-            toloporto/orthopredict-pro:latest
+            -v orthopredict_data:/app/data \
+            -v orthopredict_models:/app/models \
+            -v orthopredict_logs:/app/logs \
+            -v orthopredict_backups:/app/backups \
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          
+          echo "✅ Deployment completed successfully!"
+          echo "📊 App available at: http://${{ secrets.SERVER_HOST }}:8501"
+
+  # JOB 6: Notificaciones (OPTIMIZADO)
+  notifications:
+    name: 📢 Notifications
+    runs-on: ubuntu-latest
+    needs: [run-tests, security-scan, docker-build, docker-push, deploy-production]
+    if: always()
+    
+    steps:
+    - name: 📢 Send Discord notification
+      uses: tsickert/discord-webhook@v5
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        content: |
+          **OrthoPredict CI/CD - ${{ github.event_name }}** 
+          **Status:** `${{ job.status }}`
+          **Branch:** `${{ github.ref }}`
+          **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          **Workflow:** [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          **Jobs Status:**
+          - Tests: ${{ needs.run-tests.result }}
+          - Security: ${{ needs.security-scan.result }}
+          - Docker Build: ${{ needs.docker-build.result }}
+          - Docker Push: ${{ needs.docker-push.result }}
+          - Deploy: ${{ needs.deploy-production.result }}
