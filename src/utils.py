@@ -30,6 +30,10 @@ class OrthoUtils:
             return obj.tolist()
         elif isinstance(obj, datetime):
             return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {k: OrthoUtils.safe_json_serialize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [OrthoUtils.safe_json_serialize(v) for v in obj]
         elif hasattr(obj, '__dict__'):
             return obj.__dict__
         else:
