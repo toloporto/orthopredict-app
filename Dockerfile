@@ -13,8 +13,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
-    software-properties-common \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements e instalar dependencias Python
 COPY requirements.txt .

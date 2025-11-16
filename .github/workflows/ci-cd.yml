@@ -39,7 +39,7 @@ jobs:
     
     # Paso 5: Subir reporte de cobertura (Opcional)
     - name: 📊 Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
@@ -110,7 +110,8 @@ jobs:
         # Verificar que el contenedor está corriendo
         docker ps | grep orthopredict-test
         
-        # Verificar logs        docker logs orthopredict-test > docker-test.log 2>&1
+        # Verificar logs
+        docker logs orthopredict-test > docker-test.log 2>&1
         
         # Limpiar
         docker stop orthopredict-test
