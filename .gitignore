@@ -1,0 +1,45 @@
+# Archivos de entorno - ¡NUNCA SUBIR!
+.env
+.env.*
+!/.env.example
+
+# Datos sensibles y backups
+/data/
+/backups/
+/src/backups/
+*.json
+!/src/report_templates/template.json
+!/models/orthopredict.json
+!/data/pacientes_db.json
+!/src/users.json
+!/users.json
+
+# Logs
+/logs/
+*.log
+
+# Archivos de modelo y cache de ML
+/models/
+*.joblib
+*.pkl
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Reportes generados
+*.html
+*.pdf
+*.xlsx
+*.csv
+
+# Dependencias de Python
+venv/
+.venv/
+env/
+.env/
