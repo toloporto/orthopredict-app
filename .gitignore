@@ -1,0 +1,48 @@
+# Cache de Python y archivos compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de entorno - ¡NUNCA SUBIR!
+.env
+.env.*
+# No ignores el archivo de ejemplo, es una buena práctica tenerlo
+!/.env.example
+
+# Datos sensibles y backups
+/data/
+/src/backups/
+users.json
+src/users.json
+
+# Logs
+/logs/
+*.log
+
+# Archivos de modelo y cache de ML
+# Los modelos grandes no deben estar en Git. Usa Git LFS o descárgalos.
+/models/
+*.joblib
+*.pkl
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Reportes generados
+*.html
+*.pdf
+*.xlsx
+*.csv
+
+# Dependencias de Python
+venv/
+.venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Archivos de IDEs
+.vscode/
+.idea/
