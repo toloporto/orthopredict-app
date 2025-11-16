@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ main ]
 
+# Variables de entorno para notificaciones
+env: # Cambiado a Discord
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
 jobs:
   # JOB 1: Ejecutar Tests
   run-tests:
@@ -135,3 +139,60 @@ jobs:
   #   steps:
   #   - name: 🚀 Deploy to production
   #     run: echo "Deploy logic would go here"
+
+  # JOB 5: Notificaciones
+  notifications:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    # Se ejecuta después de los jobs principales, sin importar si fallan
+    needs: [run-tests, security-scan, docker-build]
+    if: always() # 'always()' asegura que este job se ejecute siempre
+    
+    steps:
+    - name: 📢 Send Discord notification
+      uses: tsickert/discord-webhook@v5
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        content: |
+          **OrthoPredict CI/CD Pipeline Status: `${{ job.status }}`**
+          - **Repositorio:** `${{ github.repository }}`
+          - **Commit:** `${{ github.sha }}`
+          - **Autor:** `${{ github.actor }}`
+          - **Workflow:** `${{ github.workflow }}`
+          - Ver detalles de la ejecución
+
+  # JOB 6: Despliegue a Producción (Solo en main)
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🐳 Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          toloporto/orthopredict-pro:latest
+          toloporto/orthopredict-pro:${{ github.sha }}
+    
+    - name: 🚀 Deploy to server
+      uses: appleboy/ssh-action@v0.1.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          docker pull toloporto/orthopredict-pro:latest
+          docker stop orthopredict-app || true
+          docker rm orthopredict-app || true
+          docker run -d \
+            --name orthopredict-app \
+            -p 8501:8501 \
+            --restart unless-stopped \
+            toloporto/orthopredict-pro:latest
