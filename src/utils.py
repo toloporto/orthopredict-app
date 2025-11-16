@@ -18,7 +18,13 @@ class OrthoUtils:
     @staticmethod
     def safe_json_serialize(obj: Any) -> Any:
         """Serializar objeto a JSON de forma segura"""
-        if isinstance(obj, (np.integer, np.int64)):
+        # Casos recursivos primero para manejar estructuras anidadas
+        if isinstance(obj, dict):
+            return {k: OrthoUtils.safe_json_serialize(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [OrthoUtils.safe_json_serialize(v) for v in obj]
+        # Tipos de Numpy
+        elif isinstance(obj, (np.integer, np.int64)):
             return int(obj)
         elif isinstance(obj, (np.floating, np.float64)):
             return float(obj)
@@ -30,10 +36,6 @@ class OrthoUtils:
             return obj.tolist()
         elif isinstance(obj, datetime):
             return obj.isoformat()
-        elif isinstance(obj, dict):
-            return {k: OrthoUtils.safe_json_serialize(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [OrthoUtils.safe_json_serialize(v) for v in obj]
         elif hasattr(obj, '__dict__'):
             return obj.__dict__
         else:
